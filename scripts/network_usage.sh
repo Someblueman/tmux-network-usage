@@ -26,10 +26,14 @@ format_speed() {
 
 
 main() {
-    # 1. Get the OLD state stored in tmux options.
-    local old_time=$(get_tmux_option "@network_usage_old_time")
-    local old_rx=$(get_tmux_option "@network_usage_old_rx")
-    local old_tx=$(get_tmux_option "@network_usage_old_tx")
+    # State file to store network data between runs
+    local state_file="/tmp/tmux_network_usage_state"
+    
+    # 1. Get the OLD state from file
+    local old_time old_rx old_tx
+    if [ -f "$state_file" ]; then
+        read -r old_time old_rx old_tx < "$state_file"
+    fi
 
     # 2. Get the CURRENT state by reading network stats.
     local curr_time=$(date +%s)
@@ -49,9 +53,7 @@ main() {
     # 3. Handle the first run or invalid state.
     if [ -z "$old_time" ] || [ -z "$old_rx" ]; then
         # Save current state for the next run.
-        set_tmux_option "@network_usage_old_time" "$curr_time"
-        set_tmux_option "@network_usage_old_rx" "$curr_rx"
-        set_tmux_option "@network_usage_old_tx" "$curr_tx"
+        echo "$curr_time $curr_rx $curr_tx" > "$state_file"
         # Display a loading message until the next interval.
         echo -n "Loading..."
         exit 0
@@ -62,8 +64,11 @@ main() {
     
     # Avoid division by zero and handle system clock changes.
     if [ "$time_diff" -le 0 ]; then
-        local last_value=$(get_tmux_option "@network_usage_last_value")
-        echo -n "${last_value:-...}" # Show last known value or a placeholder.
+        if [ -f "${state_file}.last" ]; then
+            cat "${state_file}.last"
+        else
+            echo -n "..."
+        fi
         exit 0
     fi
     
@@ -75,12 +80,12 @@ main() {
     [[ $tx_speed -lt 0 ]] && tx_speed=0
 
     local formatted_output="↓$(format_speed $rx_speed) • ↑$(format_speed $tx_speed)"
-    set_tmux_option "@network_usage_last_value" "$formatted_output"
+    
+    # Save the formatted output for potential reuse
+    echo -n "$formatted_output" > "${state_file}.last"
 
     # 6. Save the CURRENT state for the NEXT run.
-    set_tmux_option "@network_usage_old_time" "$curr_time"
-    set_tmux_option "@network_usage_old_rx" "$curr_rx"
-    set_tmux_option "@network_usage_old_tx" "$curr_tx"
+    echo "$curr_time $curr_rx $curr_tx" > "$state_file"
 
     # 7. Print the final result for the status bar.
     echo -n "$formatted_output"
