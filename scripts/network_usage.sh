@@ -28,11 +28,36 @@ format_speed() {
 main() {
     # State file to store network data between runs
     local state_file="/tmp/tmux_network_usage_state"
+    local lock_file="${state_file}.lock"
+    
+    # Simple locking mechanism to prevent race conditions
+    # Check if lock is stale (older than 10 seconds)
+    if [ -d "$lock_file" ]; then
+        local lock_age=$(($(date +%s) - $(stat -f %m "$lock_file" 2>/dev/null || echo 0)))
+        if [ "$lock_age" -gt 10 ]; then
+            rmdir "$lock_file" 2>/dev/null || true
+        fi
+    fi
+    
+    if ! mkdir "$lock_file" 2>/dev/null; then
+        # Another instance is running, show last known output
+        if [ -f "${state_file}.last" ]; then
+            cat "${state_file}.last"
+        else
+            echo -n "..."
+        fi
+        exit 0
+    fi
+    
+    # Ensure lock is removed on exit
+    trap "rmdir '$lock_file' 2>/dev/null" EXIT
     
     # 1. Get the OLD state from file
     local old_time old_rx old_tx
     if [ -f "$state_file" ]; then
-        read -r old_time old_rx old_tx < "$state_file"
+        read -r old_time old_rx old_tx < "$state_file" || true
+        # Debug: Log what we read
+        #echo "DEBUG: Read from state file: time='$old_time' rx='$old_rx' tx='$old_tx'" >> /tmp/network_usage_debug.log
     fi
 
     # 2. Get the CURRENT state by reading network stats.
@@ -51,9 +76,9 @@ main() {
     local curr_tx=${curr_bytes[1]}
 
     # 3. Handle the first run or invalid state.
-    if [ -z "$old_time" ] || [ -z "$old_rx" ]; then
+    if [ -z "$old_time" ] || [ -z "$old_rx" ] || [ -z "$old_tx" ]; then
         # Save current state for the next run.
-        echo "$curr_time $curr_rx $curr_tx" > "$state_file"
+        printf "%s %s %s\n" "$curr_time" "$curr_rx" "$curr_tx" > "$state_file"
         # Display a loading message until the next interval.
         echo -n "Loading..."
         exit 0
@@ -85,7 +110,8 @@ main() {
     echo -n "$formatted_output" > "${state_file}.last"
 
     # 6. Save the CURRENT state for the NEXT run.
-    echo "$curr_time $curr_rx $curr_tx" > "$state_file"
+    # Use printf for more reliable output
+    printf "%s %s %s\n" "$curr_time" "$curr_rx" "$curr_tx" > "$state_file"
 
     # 7. Print the final result for the status bar.
     echo -n "$formatted_output"
