@@ -12,7 +12,7 @@ Shows download and upload speeds in a compact format: `↓450kB • ↑200kB`
 
 Add to your `.tmux.conf`:
 ```bash
-set -g @plugin 'yourusername/tmux-network-usage'
+set -g @plugin 'Someblueman/tmux-network-usage'
 ```
 
 Then press `prefix + I` to install.
@@ -21,7 +21,7 @@ Then press `prefix + I` to install.
 
 Clone the repo:
 ```bash
-git clone https://github.com/yourusername/tmux-network-usage ~/.tmux/plugins/tmux-network-usage
+git clone https://github.com/Someblueman/tmux-network-usage ~/.tmux/plugins/tmux-network-usage
 ```
 
 Add to your `.tmux.conf`:
@@ -37,8 +37,5 @@ set -g status-right '#{network_usage} | %H:%M'
 ```
 
 ## Requirements
-
-- macOS or Linux
-- `numfmt` command (part of GNU coreutils)
-  - macOS: `brew install coreutils`
-  - Linux: Usually pre-installed
+- macOS: `brew install coreutils`
+- Linux: Usually pre-installed
