@@ -14,7 +14,7 @@ get_bytes_linux() {
 
 # Fetches total received (RX) and transmitted (TX) bytes on macOS.
 get_bytes_macos() {
-    netstat -i -b | awk '/Name/{for(i=1;i<=NF;i++){if($i=="Ibytes"){rx_col=i}if($i=="Obytes"){tx_col=i}};next} /lo0/{next} {sum_rx+=$rx_col; sum_tx+=$tx_col} END {print sum_rx, sum_tx}'
+    /usr/sbin/netstat -i -b | awk '/Name/{for(i=1;i<=NF;i++){if($i=="Ibytes"){rx_col=i}if($i=="Obytes"){tx_col=i}};next} /lo0/{next} {sum_rx+=$rx_col; sum_tx+=$tx_col} END {print sum_rx, sum_tx}'
 }
 
 # Formats a raw byte speed into a compact, human-readable string (e.g., 450K).
@@ -56,8 +56,6 @@ main() {
     local old_time old_rx old_tx
     if [ -f "$state_file" ]; then
         read -r old_time old_rx old_tx < "$state_file" || true
-        # Debug: Log what we read
-        #echo "DEBUG: Read from state file: time='$old_time' rx='$old_rx' tx='$old_tx'" >> /tmp/network_usage_debug.log
     fi
 
     # 2. Get the CURRENT state by reading network stats.
